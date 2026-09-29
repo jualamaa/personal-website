@@ -32,7 +32,7 @@ export default function ProfilPage() {
 
     const { count: trxCount } = await supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
     const { count: schCount } = await supabase.from('schedules').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
-    
+
     setStats({ totalTrx: trxCount || 0, totalSchedule: schCount || 0 })
   }
 
@@ -65,7 +65,7 @@ export default function ProfilPage() {
 
   return (
     <div className="w-full min-h-screen bg-slate-100 text-slate-900 pb-28 md:pb-12 animate-in fade-in duration-300">
-      
+
       {/* Top Navbar Khusus Desktop */}
       <header className="hidden md:block bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -77,19 +77,19 @@ export default function ProfilPage() {
           </div>
 
           <nav className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl">
-            <button 
+            <button
               onClick={() => router.push('/')}
               className="px-4 py-2 text-xs font-bold rounded-xl text-slate-600 hover:text-blue-600 hover:bg-white/60 transition flex items-center gap-2"
             >
               <Home size={16} /> Beranda
             </button>
-            <button 
+            <button
               onClick={() => router.push('/jadwal')}
               className="px-4 py-2 text-xs font-bold rounded-xl text-slate-600 hover:text-blue-600 hover:bg-white/60 transition flex items-center gap-2"
             >
               <Calendar size={16} /> Jadwal
             </button>
-            <button 
+            <button
               onClick={() => router.push('/profil')}
               className="px-4 py-2 text-xs font-bold rounded-xl bg-white text-blue-600 shadow-xs flex items-center gap-2"
             >
@@ -97,7 +97,7 @@ export default function ProfilPage() {
             </button>
           </nav>
 
-          <button 
+          <button
             onClick={handleLogout}
             className="text-xs font-bold text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-xl transition flex items-center gap-1.5"
           >
@@ -108,7 +108,7 @@ export default function ProfilPage() {
 
       {/* Container Utama Responsive */}
       <div className="max-w-md md:max-w-5xl mx-auto pt-0 md:pt-6 px-0 md:px-6">
-        
+
         {/* Kartu Digital Header */}
         <div className={`bg-gradient-to-br ${cardColor} text-white p-5 sm:p-6 md:p-8 rounded-b-[2rem] md:rounded-[2.5rem] shadow-xl relative overflow-hidden transition-all duration-500`}>
           <div className="absolute -right-10 -top-10 w-44 h-44 bg-white/10 rounded-full blur-2xl"></div>
@@ -214,40 +214,40 @@ export default function ProfilPage() {
                 <label className="text-[10px] sm:text-[11px] font-bold text-slate-400 mb-1 flex items-center gap-1">
                   <Mail size={11} /> Email Akun
                 </label>
-                <input 
-                  type="email" 
-                  disabled 
-                  value={user.email} 
-                  className="w-full p-3 border border-slate-200 rounded-xl text-xs font-semibold bg-slate-50 text-slate-500 cursor-not-allowed outline-none" 
+                <input
+                  type="email"
+                  disabled
+                  value={user.email}
+                  className="w-full p-3 border border-slate-200 rounded-xl text-xs font-semibold bg-slate-50 text-slate-500 cursor-not-allowed outline-none"
                 />
               </div>
 
               <div>
                 <label className="text-[10px] sm:text-[11px] font-bold text-slate-600 mb-1 block">Nama Lengkap & Gelar</label>
-                <input 
-                  type="text" 
-                  placeholder="Contoh: Budi Santoso, S.Pd." 
-                  value={nama} 
-                  onChange={(e) => setNama(e.target.value)} 
-                  className="w-full p-3 border border-slate-200 rounded-xl text-xs font-semibold bg-slate-50 text-black focus:outline-none focus:ring-2 focus:ring-blue-600 transition" 
+                <input
+                  type="text"
+                  placeholder="Contoh: Joseph Kurniawan"
+                  value={nama}
+                  onChange={(e) => setNama(e.target.value)}
+                  className="w-full p-3 border border-slate-200 rounded-xl text-xs font-semibold bg-slate-50 text-black focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
                 />
               </div>
 
               <div>
                 <label className="text-[10px] sm:text-[11px] font-bold text-slate-600 mb-1 block flex items-center gap-1">
-                  <Building size={11} /> Instansi / Tempat Tugas
+                  <Building size={11} /> Instansi
                 </label>
-                <input 
-                  type="text" 
-                  placeholder="Contoh: SDN 01 Sukamaju" 
-                  value={instansi} 
-                  onChange={(e) => setInstansi(e.target.value)} 
-                  className="w-full p-3 border border-slate-200 rounded-xl text-xs font-semibold bg-slate-50 text-black focus:outline-none focus:ring-2 focus:ring-blue-600 transition" 
+                <input
+                  type="text"
+                  placeholder="Contoh: Guru"
+                  value={instansi}
+                  onChange={(e) => setInstansi(e.target.value)}
+                  className="w-full p-3 border border-slate-200 rounded-xl text-xs font-semibold bg-slate-50 text-black focus:outline-none focus:ring-2 focus:ring-blue-600 transition"
                 />
               </div>
 
-              <button 
-                onClick={updateProfil} 
+              <button
+                onClick={updateProfil}
                 disabled={loading}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white p-3.5 rounded-xl font-bold text-xs shadow-lg shadow-blue-600/25 active:scale-95 transition flex items-center justify-center gap-1.5"
               >
