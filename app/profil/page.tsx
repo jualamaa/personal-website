@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
-import { User, Home, Calendar, Save, LogOut, Building, Mail, Check } from 'lucide-react'
+import { User, Home, Calendar, Save, LogOut, Building, Mail, Check, FileSpreadsheet, Download } from 'lucide-react'
+import * as XLSX from 'xlsx'
 
 export default function ProfilPage() {
   const [user, setUser] = useState<any>(null)
@@ -10,7 +11,14 @@ export default function ProfilPage() {
   const [instansi, setInstansi] = useState('')
   const [pesan, setPesan] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadingExport, setLoadingExport] = useState(false)
   const [stats, setStats] = useState({ totalTrx: 0, totalSchedule: 0 })
+
+  // State Ekspor Excel Dinamis & Kustom
+  const now = new Date()
+  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState<number | ''>(now.getFullYear())
+  const [availableYears, setAvailableYears] = useState<number[]>([now.getFullYear()])
 
   const router = useRouter()
 
@@ -29,10 +37,30 @@ export default function ProfilPage() {
       setInstansi(profile.instansi || '')
     }
 
-    const { count: trxCount } = await supabase.from('transactions').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
+    const { data: trxData, count: trxCount } = await supabase
+      .from('transactions')
+      .select('tanggal', { count: 'exact' })
+      .eq('user_id', user.id)
+
     const { count: schCount } = await supabase.from('schedules').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
     
     setStats({ totalTrx: trxCount || 0, totalSchedule: schCount || 0 })
+
+    // Deteksi tahun dari database transaksi untuk rekomendasi datalist
+    if (trxData && trxData.length > 0) {
+      const yearsSet = new Set<number>()
+      yearsSet.add(now.getFullYear())
+      
+      trxData.forEach(t => {
+        if (t.tanggal) {
+          const year = new Date(t.tanggal).getFullYear()
+          if (!isNaN(year)) yearsSet.add(year)
+        }
+      })
+      
+      const sortedYears = Array.from(yearsSet).sort((a, b) => b - a)
+      setAvailableYears(sortedYears)
+    }
   }
 
   const updateProfil = async () => {
@@ -51,6 +79,87 @@ export default function ProfilPage() {
       setPesan('Profil berhasil diperbarui!')
       setTimeout(() => setPesan(''), 3000)
     }
+  }
+
+  // LOGIKA EKSPOR KE EXCEL (.XLSX)
+  const exportToExcel = async () => {
+    if (!selectedYear) {
+      alert("Silakan masukkan atau pilih tahun laporan terlebih dahulu.")
+      return
+    }
+
+    setLoadingExport(true)
+
+    const { data: rawTrx, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('tanggal', { ascending: true })
+
+    if (error || !rawTrx) {
+      alert("Gagal mengambil data transaksi.")
+      setLoadingExport(false)
+      return
+    }
+
+    const filteredTrx = rawTrx.filter(t => {
+      const d = new Date(t.tanggal)
+      return (d.getMonth() + 1) === Number(selectedMonth) && d.getFullYear() === Number(selectedYear)
+    })
+
+    if (filteredTrx.length === 0) {
+      alert(`Tidak ada catatan transaksi pada bulan ${namaBulan(selectedMonth)} ${selectedYear}.`)
+      setLoadingExport(false)
+      return
+    }
+
+    let totalPemasukan = 0
+    let totalPengeluaran = 0
+
+    // Deklarasi array tipe any[] untuk mencegah kesalahan TypeScript
+    const excelRows: any[] = filteredTrx.map((t, index) => {
+      const nominal = Number(t.jumlah)
+      if (t.jenis === 'pemasukan') totalPemasukan += nominal
+      else totalPengeluaran += nominal
+
+      return {
+        "No": String(index + 1),
+        "Tanggal": t.tanggal,
+        "Jenis": t.jenis === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran',
+        "Kategori / Keterangan": t.kategori,
+        "Nominal (Rp)": nominal
+      }
+    })
+
+    // Tambah baris ringkasan saldo di bawah data utama
+    excelRows.push(
+      { "No": "-", "Tanggal": "-", "Jenis": "-", "Kategori / Keterangan": "-", "Nominal (Rp)": 0 },
+      { "No": "", "Tanggal": "", "Jenis": "TOTAL PEMASUKAN", "Kategori / Keterangan": "", "Nominal (Rp)": totalPemasukan },
+      { "No": "", "Tanggal": "", "Jenis": "TOTAL PENGELUARAN", "Kategori / Keterangan": "", "Nominal (Rp)": totalPengeluaran },
+      { "No": "", "Tanggal": "", "Jenis": "SALDO BERSIH", "Kategori / Keterangan": "", "Nominal (Rp)": (totalPemasukan - totalPengeluaran) }
+    )
+
+    const worksheet = XLSX.utils.json_to_sheet(excelRows)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Keuangan")
+
+    worksheet["!cols"] = [
+      { wch: 6 },
+      { wch: 14 },
+      { wch: 20 },
+      { wch: 30 },
+      { wch: 18 }
+    ]
+
+    const fileName = `Laporan_Keuangan_PNS_${nama ? nama.replace(/\s+/g, '_') : 'User'}_${namaBulan(selectedMonth)}_${selectedYear}.xlsx`
+    XLSX.writeFile(workbook, fileName)
+
+    setLoadingExport(false)
+  }
+
+  const namaBulan = (monthNum: number) => {
+    const listBulan = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+    return listBulan[monthNum - 1]
   }
 
   const handleLogout = async () => {
@@ -118,6 +227,64 @@ export default function ProfilPage() {
           </div>
         </div>
 
+        {/* CETAK & EKSPOR EXCEL */}
+        <div className="bg-white p-6 rounded-3xl border border-gray-200/80 max-w-2xl space-y-4 mb-6">
+          <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
+            <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
+              <FileSpreadsheet size={18} />
+            </div>
+            <div>
+              <h3 className="font-bold text-[#111111] text-sm">Unduh Laporan Keuangan</h3>
+              <p className="text-[11px] text-gray-400 font-medium">Cetak portofolio transaksi bulanan</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] font-bold text-gray-500 mb-1 block">Pilih Bulan</label>
+              <select 
+                value={selectedMonth} 
+                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                className="w-full p-3.5 border border-gray-200 rounded-2xl text-xs font-semibold bg-[#F3F4F6] text-[#111111] outline-none cursor-pointer"
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                  <option key={m} value={m}>{namaBulan(m)}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Input Tahun Kustom dengan Opsi Datalist */}
+            <div>
+              <label className="text-[11px] font-bold text-gray-500 mb-1 block">Tahun</label>
+              <input 
+                type="number" 
+                list="year-options"
+                placeholder="2026"
+                value={selectedYear}
+                onChange={(e) => {
+                  const val = e.target.value
+                  setSelectedYear(val === '' ? '' : Number(val))
+                }}
+                className="w-full p-3.5 border border-gray-200 rounded-2xl text-xs font-bold bg-[#F3F4F6] text-[#111111] outline-none focus:bg-white transition [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+              <datalist id="year-options">
+                {availableYears.map(y => (
+                  <option key={y} value={y} />
+                ))}
+              </datalist>
+            </div>
+          </div>
+
+          <button 
+            onClick={exportToExcel}
+            disabled={loadingExport}
+            className="w-full bg-emerald-700 hover:bg-emerald-800 text-white p-3.5 rounded-2xl font-bold text-xs transition active:scale-[0.99] flex items-center justify-center gap-2 shadow-xs"
+          >
+            <Download size={15} />
+            <span>{loadingExport ? 'Menyiapkan File...' : 'Unduh Laporan Excel'}</span>
+          </button>
+        </div>
+
         {/* Form Edit Informasi Data Diri */}
         <div className="bg-white p-6 rounded-3xl border border-gray-200/80 max-w-2xl space-y-4">
           <h3 className="font-bold text-[#111111] text-sm mb-2">Informasi Akun & Data Diri</h3>
@@ -141,7 +308,7 @@ export default function ProfilPage() {
           </div>
 
           <div>
-            <label className="text-[11px] font-bold text-gray-700 mb-1 block">Nama Lengkap & Gelar</label>
+            <label className="text-[11px] font-bold text-gray-700 mb-1 block">Nama</label>
             <input 
               type="text" 
               placeholder="Contoh: Budi Santoso, S.Pd." 
@@ -153,7 +320,7 @@ export default function ProfilPage() {
 
           <div>
             <label className="text-[11px] font-bold text-gray-700 mb-1 flex items-center gap-1">
-              <Building size={12} /> Instansi / Tempat Tugas
+              <Building size={12} /> Instansi
             </label>
             <input 
               type="text" 
