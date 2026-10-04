@@ -43,21 +43,21 @@ export default function ProfilPage() {
       .eq('user_id', user.id)
 
     const { count: schCount } = await supabase.from('schedules').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
-    
+
     setStats({ totalTrx: trxCount || 0, totalSchedule: schCount || 0 })
 
     // Deteksi tahun dari database transaksi untuk rekomendasi datalist
     if (trxData && trxData.length > 0) {
       const yearsSet = new Set<number>()
       yearsSet.add(now.getFullYear())
-      
+
       trxData.forEach(t => {
         if (t.tanggal) {
           const year = new Date(t.tanggal).getFullYear()
           if (!isNaN(year)) yearsSet.add(year)
         }
       })
-      
+
       const sortedYears = Array.from(yearsSet).sort((a, b) => b - a)
       setAvailableYears(sortedYears)
     }
@@ -171,7 +171,7 @@ export default function ProfilPage() {
 
   return (
     <div className="w-full min-h-screen bg-[#F3F4F6] text-[#111111] font-sans antialiased pb-28 md:pb-12">
-      
+
       {/* Top Header Desktop */}
       <header className="hidden md:block bg-white border-b border-gray-200/80 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-8 h-16 flex items-center justify-between">
@@ -202,7 +202,7 @@ export default function ProfilPage() {
 
       {/* Main Container */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 pt-4 md:pt-8">
-        
+
         {/* Kartu Profil Utama Solid */}
         <div className="bg-[#111111] text-white p-6 rounded-3xl shadow-xs max-w-2xl mb-6">
           <div className="flex items-center gap-4 mb-6">
@@ -242,8 +242,8 @@ export default function ProfilPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-[11px] font-bold text-gray-500 mb-1 block">Pilih Bulan</label>
-              <select 
-                value={selectedMonth} 
+              <select
+                value={selectedMonth}
                 onChange={(e) => setSelectedMonth(Number(e.target.value))}
                 className="w-full p-3.5 border border-gray-200 rounded-2xl text-xs font-semibold bg-[#F3F4F6] text-[#111111] outline-none cursor-pointer"
               >
@@ -256,8 +256,8 @@ export default function ProfilPage() {
             {/* Input Tahun Kustom dengan Opsi Datalist */}
             <div>
               <label className="text-[11px] font-bold text-gray-500 mb-1 block">Tahun</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 list="year-options"
                 placeholder="2026"
                 value={selectedYear}
@@ -275,13 +275,13 @@ export default function ProfilPage() {
             </div>
           </div>
 
-          <button 
+          <button
             onClick={exportToExcel}
             disabled={loadingExport}
             className="w-full bg-emerald-700 hover:bg-emerald-800 text-white p-3.5 rounded-2xl font-bold text-xs transition active:scale-[0.99] flex items-center justify-center gap-2 shadow-xs"
           >
             <Download size={15} />
-            <span>{loadingExport ? 'Menyiapkan File...' : 'Unduh Laporan Excel'}</span>
+            <span>{loadingExport ? 'Menyiapkan File...' : 'Unduh Laporan'}</span>
           </button>
         </div>
 
@@ -299,22 +299,22 @@ export default function ProfilPage() {
             <label className="text-[11px] font-bold text-gray-500 mb-1 flex items-center gap-1">
               <Mail size={12} /> Email Akun
             </label>
-            <input 
-              type="email" 
-              disabled 
-              value={user.email} 
-              className="w-full p-3.5 border border-gray-200 rounded-2xl text-xs font-medium bg-[#F3F4F6] text-gray-400 cursor-not-allowed outline-none" 
+            <input
+              type="email"
+              disabled
+              value={user.email}
+              className="w-full p-3.5 border border-gray-200 rounded-2xl text-xs font-medium bg-[#F3F4F6] text-gray-400 cursor-not-allowed outline-none"
             />
           </div>
 
           <div>
             <label className="text-[11px] font-bold text-gray-700 mb-1 block">Nama</label>
-            <input 
-              type="text" 
-              placeholder="Contoh: Budi Santoso, S.Pd." 
-              value={nama} 
-              onChange={(e) => setNama(e.target.value)} 
-              className="w-full p-3.5 border border-gray-200 rounded-2xl text-xs font-medium bg-[#F3F4F6] text-[#111111] focus:outline-none focus:bg-white transition" 
+            <input
+              type="text"
+              placeholder="Contoh: Joseph Kurniawan"
+              value={nama}
+              onChange={(e) => setNama(e.target.value)}
+              className="w-full p-3.5 border border-gray-200 rounded-2xl text-xs font-medium bg-[#F3F4F6] text-[#111111] focus:outline-none focus:bg-white transition"
             />
           </div>
 
@@ -322,17 +322,17 @@ export default function ProfilPage() {
             <label className="text-[11px] font-bold text-gray-700 mb-1 flex items-center gap-1">
               <Building size={12} /> Instansi
             </label>
-            <input 
-              type="text" 
-              placeholder="Contoh: SDN 01 Sukamaju" 
-              value={instansi} 
-              onChange={(e) => setInstansi(e.target.value)} 
-              className="w-full p-3.5 border border-gray-200 rounded-2xl text-xs font-medium bg-[#F3F4F6] text-[#111111] focus:outline-none focus:bg-white transition" 
+            <input
+              type="text"
+              placeholder="Contoh : Guru"
+              value={instansi}
+              onChange={(e) => setInstansi(e.target.value)}
+              className="w-full p-3.5 border border-gray-200 rounded-2xl text-xs font-medium bg-[#F3F4F6] text-[#111111] focus:outline-none focus:bg-white transition"
             />
           </div>
 
-          <button 
-            onClick={updateProfil} 
+          <button
+            onClick={updateProfil}
             disabled={loading}
             className="w-full bg-[#111111] hover:bg-gray-800 text-white p-4 rounded-2xl font-bold text-xs transition active:scale-[0.99] flex items-center justify-center gap-2 mt-2"
           >
