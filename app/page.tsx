@@ -10,26 +10,21 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState<any[]>([])
   const [schedules, setSchedules] = useState<any[]>([])
 
-  // State Modal Input & Modal Semua Riwayat
   const [showModal, setShowModal] = useState(false)
   const [showAllModal, setShowAllModal] = useState(false)
   const [showBalance, setShowBalance] = useState(true)
 
-  // State Filter & Pencarian Beranda
   const [filterRingkasan, setFilterRingkasan] = useState<string>('bulan')
   const [customDays, setCustomDays] = useState<number | ''>(14)
 
-  // State Filter & Pencarian Khusus Modal Semua Transaksi
   const [searchQuery, setSearchQuery] = useState('')
   const [filterTypeModal, setFilterTypeModal] = useState<'semua' | 'pemasukan' | 'pengeluaran'>('semua')
   const [filterRangeModal, setFilterRangeModal] = useState<string>('semua')
   const [customRangeModalDays, setCustomRangeModalDays] = useState<number | ''>(7)
 
-  // State Multi-Select
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [isSelectMode, setIsSelectMode] = useState(false)
 
-  // State Form Transaksi
   const [editId, setEditId] = useState<string | null>(null)
   const [jumlah, setJumlah] = useState('')
   const [kategori, setKategori] = useState('')
@@ -56,16 +51,28 @@ export default function Dashboard() {
     if (schData) setSchedules(schData)
   }
 
+  // Format angka dengan pemisah ribuan otomatis saat mengetik
+  const handleJumlahChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawValue = e.target.value.replace(/\D/g, '')
+    if (rawValue === '') {
+      setJumlah('')
+      return
+    }
+    const formatted = Number(rawValue).toLocaleString('id-ID')
+    setJumlah(formatted)
+  }
+
   const simpanTransaksi = async () => {
-    if (!jumlah || !kategori) {
+    const cleanJumlah = parseFloat(jumlah.replace(/\./g, ''))
+    if (!cleanJumlah || !kategori) {
       alert("Nominal dan Kategori wajib diisi!")
       return
     }
 
     if (editId) {
-      await supabase.from('transactions').update({ jenis, kategori, jumlah: parseFloat(jumlah) }).eq('id', editId)
+      await supabase.from('transactions').update({ jenis, kategori, jumlah: cleanJumlah }).eq('id', editId)
     } else {
-      await supabase.from('transactions').insert([{ user_id: user.id, jenis, kategori, jumlah: parseFloat(jumlah) }])
+      await supabase.from('transactions').insert([{ user_id: user.id, jenis, kategori, jumlah: cleanJumlah }])
     }
 
     setJumlah(''); setKategori(''); setEditId(null); setShowModal(false); checkUserAndFetchData()
@@ -75,7 +82,7 @@ export default function Dashboard() {
     setEditId(t.id)
     setJenis(t.jenis)
     setKategori(t.kategori)
-    setJumlah(t.jumlah.toString())
+    setJumlah(Number(t.jumlah).toLocaleString('id-ID'))
     setShowModal(true)
   }
 
@@ -117,7 +124,6 @@ export default function Dashboard() {
     router.push('/login')
   }
 
-  // Kalkulasi Keuangan
   let ringkasanPemasukan = 0
   let ringkasanPengeluaran = 0
   let totalSaldo = 0
@@ -233,7 +239,7 @@ export default function Dashboard() {
         {/* Highlight Grid */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 mb-6">
 
-          {/* KARTU SALDO HITAM PERSIS REFERENSI GAMBAR */}
+          {/* KARTU SALDO HITAM */}
           <div className="md:col-span-6 bg-[#0D0D0D] text-white p-6 rounded-3xl shadow-sm flex flex-col justify-between">
 
             <div className="mb-6">
@@ -256,7 +262,6 @@ export default function Dashboard() {
             {/* TOMBOL PEMASUKAN & PENGELUARAN PUTIH MINIMALIS */}
             <div className="grid grid-cols-2 gap-3.5 pt-5 border-t border-gray-800/60">
 
-              {/* Tombol + Pemasukan */}
               <button
                 onClick={() => { setEditId(null); setJenis('pemasukan'); setKategori(''); setJumlah(''); setShowModal(true) }}
                 className="bg-white hover:bg-gray-100 text-[#0D0D0D] py-3.5 px-4 rounded-2xl text-xs font-bold transition active:scale-[0.98] flex items-center justify-center gap-2.5 shadow-xs"
@@ -267,7 +272,6 @@ export default function Dashboard() {
                 <span>Pemasukan</span>
               </button>
 
-              {/* Tombol - Pengeluaran */}
               <button
                 onClick={() => { setEditId(null); setJenis('pengeluaran'); setKategori(''); setJumlah(''); setShowModal(true) }}
                 className="bg-white hover:bg-gray-100 text-[#0D0D0D] py-3.5 px-4 rounded-2xl text-xs font-bold transition active:scale-[0.98] flex items-center justify-center gap-2.5 shadow-xs"
@@ -287,7 +291,7 @@ export default function Dashboard() {
               <div className="flex justify-between items-center mb-4 gap-2">
                 <div className="flex items-center gap-2">
                   <PieChart size={18} className="text-[#111111]" />
-                  <h3 className="font-bold text-[#111111] text-sm">Pembukuan Periodik</h3>
+                  <h3 className="font-bold text-[#111111] text-sm">Pembukuan</h3>
                 </div>
 
                 <div className="flex items-center gap-1.5">
@@ -315,10 +319,10 @@ export default function Dashboard() {
                     onChange={(e) => setFilterRingkasan(e.target.value)}
                     className="text-xs font-semibold text-gray-700 bg-[#F3F4F6] px-3 py-1.5 rounded-xl outline-none border border-gray-200 cursor-pointer hover:border-gray-300 transition"
                   >
-                    <option value="semua">Semua Waktu</option>
                     <option value="bulan">Bulan Ini</option>
                     <option value="7">7 Hari Terakhir</option>
                     <option value="30">30 Hari Terakhir</option>
+                    <option value="semua">Semua Transaksi</option>
                     <option value="custom">Kustom Hari...</option>
                   </select>
                 </div>
@@ -626,7 +630,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Modal Input Transaksi */}
+      {/* MODAL INPUT TRANSAKSI (DENGAN INDIKATOR NOMINAL FORMAT RIBUAN) */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-gray-200 shadow-xl animate-in zoom-in-95 duration-150">
@@ -636,8 +640,16 @@ export default function Dashboard() {
             </div>
 
             <label className="text-[11px] font-bold text-gray-500 mb-1 block">Nominal (Rp)</label>
-            <input type="number" placeholder="0" value={jumlah} onChange={(e) => setJumlah(e.target.value)}
-              className="w-full p-3.5 border border-gray-200 rounded-2xl mb-3 text-base font-bold bg-[#F3F4F6] text-[#111111] focus:outline-none focus:bg-white transition" />
+            <div className="relative mb-3">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-gray-400">Rp</span>
+              <input
+                type="text"
+                placeholder="0"
+                value={jumlah}
+                onChange={handleJumlahChange}
+                className="w-full pl-9 pr-3.5 py-3.5 border border-gray-200/80 rounded-2xl text-sm font-bold bg-[#F8F9FA] text-[#111111] focus:outline-none focus:bg-white transition"
+              />
+            </div>
 
             <label className="text-[11px] font-bold text-gray-500 mb-1 block">Kategori</label>
             <input type="text" placeholder="Ketik kategori..." value={kategori} onChange={(e) => setKategori(e.target.value)}
