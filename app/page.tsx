@@ -9,11 +9,11 @@ export default function Dashboard() {
   const [userName, setUserName] = useState<string>('Pengguna')
   const [transactions, setTransactions] = useState<any[]>([])
   const [schedules, setSchedules] = useState<any[]>([])
-  
+
   const [showModal, setShowModal] = useState(false)
   const [showAllModal, setShowAllModal] = useState(false)
   const [showBalance, setShowBalance] = useState(true)
-  
+
   const [filterRingkasan, setFilterRingkasan] = useState<string>('bulan')
   const [customDays, setCustomDays] = useState<number | ''>(14)
 
@@ -21,7 +21,7 @@ export default function Dashboard() {
   const [filterTypeModal, setFilterTypeModal] = useState<'semua' | 'pemasukan' | 'pengeluaran'>('semua')
   const [filterRangeModal, setFilterRangeModal] = useState<string>('semua')
   const [customRangeModalDays, setCustomRangeModalDays] = useState<number | ''>(7)
-  
+
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [isSelectMode, setIsSelectMode] = useState(false)
 
@@ -29,7 +29,7 @@ export default function Dashboard() {
   const [jumlah, setJumlah] = useState('')
   const [kategori, setKategori] = useState('')
   const [jenis, setJenis] = useState('pemasukan')
-  
+
   const router = useRouter()
 
   useEffect(() => {
@@ -40,10 +40,10 @@ export default function Dashboard() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return router.push('/login')
     setUser(user)
-    
+
     const { data: profile } = await supabase.from('profiles').select('nama').eq('id', user.id).single()
     if (profile && profile.nama) setUserName(profile.nama)
-    
+
     const { data: trxData } = await supabase.from('transactions').select('*').order('tanggal', { ascending: false })
     if (trxData) setTransactions(trxData)
 
@@ -68,13 +68,13 @@ export default function Dashboard() {
       alert("Nominal dan Kategori wajib diisi!")
       return
     }
-    
+
     if (editId) {
       await supabase.from('transactions').update({ jenis, kategori, jumlah: cleanJumlah }).eq('id', editId)
     } else {
       await supabase.from('transactions').insert([{ user_id: user.id, jenis, kategori, jumlah: cleanJumlah }])
     }
-    
+
     setJumlah(''); setKategori(''); setEditId(null); setShowModal(false); checkUserAndFetchData()
   }
 
@@ -127,7 +127,7 @@ export default function Dashboard() {
   let ringkasanPemasukan = 0
   let ringkasanPengeluaran = 0
   let totalSaldo = 0
-  
+
   const now = new Date()
   const currentMonth = now.getMonth()
   const currentYear = now.getFullYear()
@@ -135,7 +135,7 @@ export default function Dashboard() {
   transactions.forEach(t => {
     const tAmount = Number(t.jumlah)
     const tDate = new Date(t.tanggal)
-    
+
     if (t.jenis === 'pemasukan') totalSaldo += tAmount
     else totalSaldo -= tAmount
 
@@ -164,10 +164,10 @@ export default function Dashboard() {
   const filteredModalTransactions = transactions.filter(t => {
     const matchSearch = t.kategori.toLowerCase().includes(searchQuery.toLowerCase())
     const matchType = filterTypeModal === 'semua' || t.jenis === filterTypeModal
-    
+
     let matchRange = true
     const tDate = new Date(t.tanggal)
-    
+
     if (filterRangeModal === 'bulan') {
       matchRange = tDate.getFullYear() === currentYear && tDate.getMonth() === currentMonth
     } else if (filterRangeModal !== 'semua') {
@@ -187,7 +187,7 @@ export default function Dashboard() {
 
   return (
     <div className="w-full min-h-screen bg-[#F3F4F6] text-[#111111] font-sans antialiased pb-28 md:pb-12">
-      
+
       {/* Top Header Desktop */}
       <header className="hidden md:block bg-white border-b border-gray-200/80 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-8 h-16 flex items-center justify-between">
@@ -218,7 +218,7 @@ export default function Dashboard() {
 
       {/* Main Container */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 pt-4 md:pt-8">
-        
+
         {/* Header Profil */}
         <div className="flex justify-between items-center mb-6 px-1">
           <div className="flex items-center gap-3">
@@ -238,10 +238,10 @@ export default function Dashboard() {
 
         {/* Highlight Grid */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 mb-6">
-          
+
           {/* KARTU SALDO HITAM */}
           <div className="md:col-span-6 bg-[#0D0D0D] text-white p-6 rounded-3xl shadow-sm flex flex-col justify-between">
-            
+
             <div className="mb-6">
               <span className="text-[10px] tracking-wider text-gray-400 font-bold uppercase block mb-1.5">
                 TOTAL SALDO AKTIF
@@ -250,8 +250,8 @@ export default function Dashboard() {
                 <h2 className="text-3xl font-extrabold tracking-tight">
                   {showBalance ? `Rp ${totalSaldo.toLocaleString('id-ID')}` : 'Rp ••••••••'}
                 </h2>
-                <button 
-                  onClick={() => setShowBalance(!showBalance)} 
+                <button
+                  onClick={() => setShowBalance(!showBalance)}
                   className="w-8 h-8 rounded-full bg-[#1A1A1A] hover:bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition"
                 >
                   {showBalance ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -261,8 +261,8 @@ export default function Dashboard() {
 
             {/* TOMBOL PEMASUKAN & PENGELUARAN PUTIH MINIMALIS */}
             <div className="grid grid-cols-2 gap-3.5 pt-5 border-t border-gray-800/60">
-              
-              <button 
+
+              <button
                 onClick={() => { setEditId(null); setJenis('pemasukan'); setKategori(''); setJumlah(''); setShowModal(true) }}
                 className="bg-white hover:bg-gray-100 text-[#0D0D0D] py-3.5 px-4 rounded-2xl text-xs font-bold transition active:scale-[0.98] flex items-center justify-center gap-2.5 shadow-xs"
               >
@@ -272,7 +272,7 @@ export default function Dashboard() {
                 <span>Pemasukan</span>
               </button>
 
-              <button 
+              <button
                 onClick={() => { setEditId(null); setJenis('pengeluaran'); setKategori(''); setJumlah(''); setShowModal(true) }}
                 className="bg-white hover:bg-gray-100 text-[#0D0D0D] py-3.5 px-4 rounded-2xl text-xs font-bold transition active:scale-[0.98] flex items-center justify-center gap-2.5 shadow-xs"
               >
@@ -291,15 +291,15 @@ export default function Dashboard() {
               <div className="flex justify-between items-center mb-4 gap-2">
                 <div className="flex items-center gap-2">
                   <PieChart size={18} className="text-[#111111]" />
-                  <h3 className="font-bold text-[#111111] text-sm">Pembukuan Periodik</h3>
+                  <h3 className="font-bold text-[#111111] text-sm">Pembukuan</h3>
                 </div>
 
                 <div className="flex items-center gap-1.5">
                   {filterRingkasan === 'custom' && (
                     <div className="flex items-center bg-[#F3F4F6] border border-gray-200 rounded-xl px-2.5 py-1">
-                      <input 
-                        type="number" 
-                        value={customDays} 
+                      <input
+                        type="number"
+                        value={customDays}
                         onChange={(e) => {
                           if (e.target.value === '') { setCustomDays(''); return; }
                           let val = parseInt(e.target.value);
@@ -307,23 +307,23 @@ export default function Dashboard() {
                           if (val < 1) val = 1;
                           setCustomDays(val);
                         }}
-                        className="w-9 text-xs font-bold text-[#111111] bg-transparent outline-none text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                        className="w-9 text-xs font-bold text-[#111111] bg-transparent outline-none text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         placeholder="14"
                       />
                       <span className="text-[11px] font-semibold text-gray-500">Hari</span>
                     </div>
                   )}
 
-                  <select 
-                    value={filterRingkasan} 
+                  <select
+                    value={filterRingkasan}
                     onChange={(e) => setFilterRingkasan(e.target.value)}
                     className="text-xs font-semibold text-gray-700 bg-[#F3F4F6] px-3 py-1.5 rounded-xl outline-none border border-gray-200 cursor-pointer hover:border-gray-300 transition"
                   >
-                    <option value="semua">Semua Transaksi</option>
                     <option value="bulan">Bulan Ini</option>
                     <option value="7">7 Hari Terakhir</option>
                     <option value="30">30 Hari Terakhir</option>
-                    <option value="custom">Kustom Hari</option>
+                    <option value="semua">Semua Transaksi</option>
+                    <option value="custom">Kustom Hari...</option>
                   </select>
                 </div>
               </div>
@@ -350,8 +350,8 @@ export default function Dashboard() {
                 <span className="font-bold text-[#111111]">{rasioPengeluaran}%</span>
               </div>
               <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
-                <div 
-                  className={`h-full rounded-full transition-all duration-300 ${rasioPengeluaran > 80 ? 'bg-rose-600' : 'bg-[#111111]'}`} 
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${rasioPengeluaran > 80 ? 'bg-rose-600' : 'bg-[#111111]'}`}
                   style={{ width: `${rasioPengeluaran}%` }}
                 ></div>
               </div>
@@ -362,7 +362,7 @@ export default function Dashboard() {
 
         {/* Layout Riwayat Transaksi & Agenda Singkat */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          
+
           {/* Riwayat Transaksi */}
           <div className="md:col-span-8 space-y-3">
             <div className="flex justify-between items-center px-1">
@@ -370,7 +370,7 @@ export default function Dashboard() {
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-400 font-medium">{transactions.length} transaksi</span>
                 {transactions.length > 10 && (
-                  <button 
+                  <button
                     onClick={() => setShowAllModal(true)}
                     className="text-xs font-bold text-[#111111] hover:underline flex items-center gap-0.5"
                   >
@@ -398,15 +398,15 @@ export default function Dashboard() {
                       {t.jenis === 'pemasukan' ? '+' : '-'}Rp {Number(t.jumlah).toLocaleString('id-ID')}
                     </p>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => bukaEditModal(t)} className="p-1.5 text-gray-400 hover:text-[#111111] hover:bg-gray-100 rounded-lg transition"><Edit3 size={14}/></button>
-                      <button onClick={() => hapusTransaksi(t.id)} className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-gray-100 rounded-lg transition"><Trash2 size={14}/></button>
+                      <button onClick={() => bukaEditModal(t)} className="p-1.5 text-gray-400 hover:text-[#111111] hover:bg-gray-100 rounded-lg transition"><Edit3 size={14} /></button>
+                      <button onClick={() => hapusTransaksi(t.id)} className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-gray-100 rounded-lg transition"><Trash2 size={14} /></button>
                     </div>
                   </div>
                 </div>
               ))}
 
               {transactions.length > 10 && (
-                <button 
+                <button
                   onClick={() => setShowAllModal(true)}
                   className="w-full py-3 bg-white hover:bg-gray-100 text-[#111111] border border-gray-200 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs"
                 >
@@ -460,7 +460,7 @@ export default function Dashboard() {
 
       {/* Floating Action Button untuk Mobile */}
       <div className="fixed bottom-20 right-5 md:hidden z-30">
-        <button 
+        <button
           onClick={() => { setEditId(null); setJenis('pemasukan'); setKategori(''); setJumlah(''); setShowModal(true) }}
           className="bg-[#111111] text-white p-4 rounded-full shadow-lg flex items-center justify-center active:scale-95 transition"
         >
@@ -472,18 +472,18 @@ export default function Dashboard() {
       {showAllModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-2xl rounded-3xl p-6 border border-gray-200 shadow-2xl max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-150">
-            
+
             <div className="flex justify-between items-center mb-3 pb-3 border-b border-gray-100">
               <div>
                 <h2 className="font-extrabold text-base text-[#111111]">Semua Riwayat Transaksi</h2>
                 <p className="text-[11px] text-gray-400 font-medium">Menampilkan {filteredModalTransactions.length} dari {transactions.length} transaksi</p>
               </div>
-              <button onClick={() => { setShowAllModal(false); setIsSelectMode(false); setSelectedIds([]) }} className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full transition"><X size={16}/></button>
+              <button onClick={() => { setShowAllModal(false); setIsSelectMode(false); setSelectedIds([]) }} className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full transition"><X size={16} /></button>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3 bg-slate-50 p-2.5 rounded-2xl border border-gray-200/80">
               <div className="flex items-center gap-2">
-                <button 
+                <button
                   onClick={() => {
                     setIsSelectMode(!isSelectMode)
                     setSelectedIds([])
@@ -495,7 +495,7 @@ export default function Dashboard() {
                 </button>
 
                 {isSelectMode && (
-                  <button 
+                  <button
                     onClick={toggleSelectAllModal}
                     className="px-3 py-1.5 text-xs font-semibold text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 rounded-xl transition"
                   >
@@ -505,7 +505,7 @@ export default function Dashboard() {
               </div>
 
               {isSelectMode && selectedIds.length > 0 && (
-                <button 
+                <button
                   onClick={hapusItemTerpilih}
                   className="px-3 py-1.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition flex items-center gap-1 shadow-xs"
                 >
@@ -519,9 +519,9 @@ export default function Dashboard() {
               <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1">
                   <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input 
-                    type="text" 
-                    placeholder="Cari kategori transaksi..." 
+                  <input
+                    type="text"
+                    placeholder="Cari kategori transaksi..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-xl text-xs font-medium bg-[#F3F4F6] text-[#111111] outline-none focus:bg-white transition"
@@ -544,9 +544,9 @@ export default function Dashboard() {
                 <div className="flex items-center gap-1.5">
                   {filterRangeModal === 'custom' && (
                     <div className="flex items-center bg-white border border-gray-200 rounded-lg px-2 py-0.5">
-                      <input 
-                        type="number" 
-                        value={customRangeModalDays} 
+                      <input
+                        type="number"
+                        value={customRangeModalDays}
                         onChange={(e) => {
                           if (e.target.value === '') { setCustomRangeModalDays(''); return; }
                           let val = parseInt(e.target.value);
@@ -554,15 +554,15 @@ export default function Dashboard() {
                           if (val < 1) val = 1;
                           setCustomRangeModalDays(val);
                         }}
-                        className="w-8 text-xs font-bold text-[#111111] bg-transparent outline-none text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                        className="w-8 text-xs font-bold text-[#111111] bg-transparent outline-none text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                         placeholder="7"
                       />
                       <span className="text-[10px] font-semibold text-gray-400">Hari</span>
                     </div>
                   )}
 
-                  <select 
-                    value={filterRangeModal} 
+                  <select
+                    value={filterRangeModal}
                     onChange={(e) => setFilterRangeModal(e.target.value)}
                     className="text-xs font-bold text-[#111111] bg-white px-2.5 py-1 rounded-lg outline-none border border-gray-200 cursor-pointer"
                   >
@@ -570,7 +570,7 @@ export default function Dashboard() {
                     <option value="bulan">Bulan Ini</option>
                     <option value="7">7 Hari Terakhir</option>
                     <option value="30">30 Hari Terakhir</option>
-                    <option value="custom">Kustom Hari</option>
+                    <option value="custom">Kustom Hari...</option>
                   </select>
                 </div>
               </div>
@@ -580,14 +580,12 @@ export default function Dashboard() {
               {filteredModalTransactions.map((t) => {
                 const isSelected = selectedIds.includes(t.id)
                 return (
-                  <div 
-                    key={t.id} 
+                  <div
+                    key={t.id}
                     onClick={() => isSelectMode && toggleSelectId(t.id)}
-                    className={`p-3.5 rounded-2xl border transition flex justify-between items-center ${
-                      isSelectMode ? 'cursor-pointer' : ''
-                    } ${
-                      isSelected ? 'bg-slate-100 border-[#111111]' : 'bg-[#F3F4F6]/60 border-gray-200/60 hover:bg-[#F3F4F6]'
-                    }`}
+                    className={`p-3.5 rounded-2xl border transition flex justify-between items-center ${isSelectMode ? 'cursor-pointer' : ''
+                      } ${isSelected ? 'bg-slate-100 border-[#111111]' : 'bg-[#F3F4F6]/60 border-gray-200/60 hover:bg-[#F3F4F6]'
+                      }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       {isSelectMode && (
@@ -612,8 +610,8 @@ export default function Dashboard() {
 
                       {!isSelectMode && (
                         <div className="flex items-center gap-1">
-                          <button onClick={() => { setShowAllModal(false); bukaEditModal(t); }} className="p-1.5 text-gray-400 hover:text-[#111111] hover:bg-gray-200 rounded-lg transition"><Edit3 size={14}/></button>
-                          <button onClick={() => hapusTransaksi(t.id)} className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-gray-200 rounded-lg transition"><Trash2 size={14}/></button>
+                          <button onClick={() => { setShowAllModal(false); bukaEditModal(t); }} className="p-1.5 text-gray-400 hover:text-[#111111] hover:bg-gray-200 rounded-lg transition"><Edit3 size={14} /></button>
+                          <button onClick={() => hapusTransaksi(t.id)} className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-gray-200 rounded-lg transition"><Trash2 size={14} /></button>
                         </div>
                       )}
                     </div>
@@ -632,33 +630,31 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* MODAL INPUT TRANSAKSI (AUTOMATIC NUMERIC KEYBOARD) */}
+      {/* MODAL INPUT TRANSAKSI (DENGAN INDIKATOR NOMINAL FORMAT RIBUAN) */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-gray-200 shadow-xl animate-in zoom-in-95 duration-150">
             <div className="flex justify-between items-center mb-5">
               <h2 className="font-bold text-base text-[#111111]">{editId ? 'Edit Catatan' : `Tambah ${jenis === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran'}`}</h2>
-              <button onClick={() => setShowModal(false)} className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full transition"><X size={16}/></button>
+              <button onClick={() => setShowModal(false)} className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full transition"><X size={16} /></button>
             </div>
-            
+
             <label className="text-[11px] font-bold text-gray-500 mb-1 block">Nominal (Rp)</label>
             <div className="relative mb-3">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-gray-400">Rp</span>
-              <input 
-                type="text" 
-                inputMode="numeric"
-                pattern="[0-9]*"
-                placeholder="0" 
-                value={jumlah} 
-                onChange={handleJumlahChange} 
-                className="w-full pl-9 pr-3.5 py-3.5 border border-gray-200/80 rounded-2xl text-sm font-bold bg-[#F8F9FA] text-[#111111] focus:outline-none focus:bg-white transition" 
+              <input
+                type="text"
+                placeholder="0"
+                value={jumlah}
+                onChange={handleJumlahChange}
+                className="w-full pl-9 pr-3.5 py-3.5 border border-gray-200/80 rounded-2xl text-sm font-bold bg-[#F8F9FA] text-[#111111] focus:outline-none focus:bg-white transition"
               />
             </div>
-            
+
             <label className="text-[11px] font-bold text-gray-500 mb-1 block">Kategori</label>
-            <input type="text" placeholder="Ketik kategori..." value={kategori} onChange={(e) => setKategori(e.target.value)} 
+            <input type="text" placeholder="Ketik kategori..." value={kategori} onChange={(e) => setKategori(e.target.value)}
               className="w-full p-3.5 border border-gray-200 rounded-2xl mb-3 text-xs font-semibold bg-[#F3F4F6] text-[#111111] focus:outline-none focus:bg-white transition" />
-            
+
             <div className="flex flex-wrap gap-1.5 mb-6">
               {(jenis === 'pemasukan' ? saranPemasukan : saranPengeluaran).map((saran) => (
                 <button key={saran} onClick={() => setKategori(saran)} className={`px-3 py-1.5 text-[11px] font-semibold rounded-xl transition ${kategori === saran ? 'bg-[#111111] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
@@ -666,7 +662,7 @@ export default function Dashboard() {
                 </button>
               ))}
             </div>
-            
+
             <button onClick={simpanTransaksi} className="w-full bg-[#111111] hover:bg-gray-800 text-white p-4 rounded-2xl font-bold text-xs transition active:scale-[0.99]">
               {editId ? 'Perbarui Data' : 'Simpan Transaksi'}
             </button>
