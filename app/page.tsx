@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
-import { LogOut, Eye, EyeOff, X, Home, Calendar, User, Trash2, Edit3, Plus, ArrowUpRight, ArrowDownLeft, PieChart, CheckCircle2, Circle, Search, ChevronRight, History, Filter, CheckSquare, Square } from 'lucide-react'
+import { LogOut, Eye, EyeOff, X, Home, Calendar, User, Trash2, Edit3, Plus, ArrowUpRight, ArrowDownLeft, PieChart, CheckCircle2, Circle, Search, ChevronRight, History, Filter, CheckSquare, Square, Calculator, Delete, CornerDownLeft } from 'lucide-react'
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
@@ -13,6 +13,11 @@ export default function Dashboard() {
   const [showModal, setShowModal] = useState(false)
   const [showAllModal, setShowAllModal] = useState(false)
   const [showBalance, setShowBalance] = useState(true)
+
+  // State Pop-up Kalkulator
+  const [showCalcModal, setShowCalcModal] = useState(false)
+  const [calcDisplay, setCalcDisplay] = useState('0')
+  const [calcExpression, setCalcExpression] = useState('')
 
   const [filterRingkasan, setFilterRingkasan] = useState<string>('bulan')
   const [customDays, setCustomDays] = useState<number | ''>(14)
@@ -60,6 +65,62 @@ export default function Dashboard() {
     }
     const formatted = Number(rawValue).toLocaleString('id-ID')
     setJumlah(formatted)
+  }
+
+  // Logika Kalkulator
+  const handleCalcInput = (val: string) => {
+    if (val === 'AC') {
+      setCalcDisplay('0')
+      setCalcExpression('')
+      return
+    }
+
+    if (val === 'DEL') {
+      if (calcDisplay.length <= 1 || calcDisplay === '0') {
+        setCalcDisplay('0')
+      } else {
+        setCalcDisplay(calcDisplay.slice(0, -1))
+      }
+      return
+    }
+
+    if (['+', '-', '×', '÷', '%'].includes(val)) {
+      setCalcExpression(calcDisplay + ' ' + val + ' ')
+      setCalcDisplay('0')
+      return
+    }
+
+    if (val === '=') {
+      if (!calcExpression) return
+      try {
+        const fullExpr = calcExpression + calcDisplay
+        const sanitized = fullExpr.replace(/×/g, '*').replace(/÷/g, '/').replace(/%/g, '/100')
+        // eslint-disable-next-line no-eval
+        const result = eval(sanitized)
+        const roundedResult = Math.round(result * 100) / 100
+        setCalcDisplay(roundedResult.toString())
+        setCalcExpression('')
+      } catch (err) {
+        setCalcDisplay('Error')
+      }
+      return
+    }
+
+    if (calcDisplay === '0') {
+      setCalcDisplay(val)
+    } else {
+      setCalcDisplay(calcDisplay + val)
+    }
+  }
+
+  // Transfer hasil kalkulator ke input nominal transaksi
+  const gunakanHasilKalkulator = () => {
+    const numericValue = parseFloat(calcDisplay.replace(/[^0-9.]/g, ''))
+    if (!isNaN(numericValue) && numericValue > 0) {
+      setJumlah(Math.round(numericValue).toLocaleString('id-ID'))
+      setShowCalcModal(false)
+      setShowModal(true)
+    }
   }
 
   const simpanTransaksi = async () => {
@@ -259,7 +320,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* TOMBOL PEMASUKAN & PENGELUARAN PUTIH MINIMALIS */}
+            {/* TOMBOL PEMASUKAN & PENGELUARAN */}
             <div className="grid grid-cols-2 gap-3.5 pt-5 border-t border-gray-800/60">
 
               <button
@@ -319,11 +380,11 @@ export default function Dashboard() {
                     onChange={(e) => setFilterRingkasan(e.target.value)}
                     className="text-xs font-semibold text-gray-700 bg-[#F3F4F6] px-3 py-1.5 rounded-xl outline-none border border-gray-200 cursor-pointer hover:border-gray-300 transition"
                   >
-                    <option value="bulan">Bulan Ini</option>
+                    <option value="semua">Semua Transaksi</option>
                     <option value="7">7 Hari Terakhir</option>
                     <option value="30">30 Hari Terakhir</option>
-                    <option value="semua">Semua Transaksi</option>
-                    <option value="custom">Kustom Hari...</option>
+                    <option value="bulan">Bulan Ini</option>
+                    <option value="custom">Kustom Hari</option>
                   </select>
                 </div>
               </div>
@@ -458,15 +519,114 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* Floating Action Button untuk Mobile */}
-      <div className="fixed bottom-20 right-5 md:hidden z-30">
+      {/* FLOATING ACTION BUTTONS */}
+      <div className="fixed bottom-20 right-5 z-30 flex flex-col items-center gap-3">
+        <button
+          onClick={() => setShowCalcModal(true)}
+          title="Buka Kalkulator Hitung"
+          className="bg-white text-[#111111] hover:bg-gray-100 p-3.5 rounded-full shadow-lg border border-gray-200/80 flex items-center justify-center active:scale-95 transition-all duration-200 group"
+        >
+          <Calculator size={20} className="group-hover:scale-110 transition-transform text-[#111111]" />
+        </button>
+
         <button
           onClick={() => { setEditId(null); setJenis('pemasukan'); setKategori(''); setJumlah(''); setShowModal(true) }}
-          className="bg-[#111111] text-white p-4 rounded-full shadow-lg flex items-center justify-center active:scale-95 transition"
+          title="Tambah Transaksi"
+          className="bg-[#111111] text-white hover:bg-gray-800 p-4 rounded-full shadow-xl flex items-center justify-center active:scale-95 transition-all duration-200"
         >
           <Plus size={22} />
         </button>
       </div>
+
+      {/* MODAL POP-UP KALKULATOR INTERAKTIF */}
+      {showCalcModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-xs sm:max-w-sm rounded-3xl p-5 border border-gray-200 shadow-2xl animate-in zoom-in-95 duration-150">
+
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 bg-gray-100 rounded-xl flex items-center justify-center text-[#111111]">
+                  <Calculator size={15} />
+                </div>
+                <h2 className="font-bold text-sm text-[#111111]">Kalkulator Cihuy</h2>
+              </div>
+              <button onClick={() => setShowCalcModal(false)} className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full transition"><X size={15} /></button>
+            </div>
+
+            <div className="bg-[#F8F9FA] p-4 rounded-2xl border border-gray-200/80 mb-4 text-right">
+              <p className="text-[11px] font-semibold text-gray-400 min-h-[16px] overflow-hidden">{calcExpression || ' '}</p>
+              <p className="text-2xl font-black text-[#111111] tracking-tight truncate mt-0.5">{calcDisplay}</p>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {['AC', '÷', '×', 'DEL'].map((btn) => (
+                <button
+                  key={btn}
+                  onClick={() => handleCalcInput(btn)}
+                  className={`py-3 rounded-xl font-extrabold text-xs transition active:scale-95 ${btn === 'AC' ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' :
+                      btn === 'DEL' ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' :
+                        'bg-slate-100 text-[#111111] hover:bg-slate-200'
+                    }`}
+                >
+                  {btn === 'DEL' ? <Delete size={15} className="mx-auto" /> : btn}
+                </button>
+              ))}
+
+              {['7', '8', '9', '-'].map((btn) => (
+                <button
+                  key={btn}
+                  onClick={() => handleCalcInput(btn)}
+                  className={`py-3 rounded-xl font-bold text-xs transition active:scale-95 ${btn === '-' ? 'bg-slate-100 text-[#111111] hover:bg-slate-200 font-extrabold' : 'bg-[#F3F4F6] text-[#111111] hover:bg-gray-200'
+                    }`}
+                >
+                  {btn}
+                </button>
+              ))}
+
+              {['4', '5', '6', '+'].map((btn) => (
+                <button
+                  key={btn}
+                  onClick={() => handleCalcInput(btn)}
+                  className={`py-3 rounded-xl font-bold text-xs transition active:scale-95 ${btn === '+' ? 'bg-slate-100 text-[#111111] hover:bg-slate-200 font-extrabold' : 'bg-[#F3F4F6] text-[#111111] hover:bg-gray-200'
+                    }`}
+                >
+                  {btn}
+                </button>
+              ))}
+
+              {['1', '2', '3', '='].map((btn) => (
+                <button
+                  key={btn}
+                  onClick={() => handleCalcInput(btn)}
+                  className={`py-3 rounded-xl font-bold text-xs transition active:scale-95 ${btn === '=' ? 'bg-[#111111] text-white hover:bg-gray-800 row-span-2 flex items-center justify-center font-extrabold' : 'bg-[#F3F4F6] text-[#111111] hover:bg-gray-200'
+                    }`}
+                >
+                  {btn}
+                </button>
+              ))}
+
+              {['0', '00', '.'].map((btn) => (
+                <button
+                  key={btn}
+                  onClick={() => handleCalcInput(btn)}
+                  className="py-3 bg-[#F3F4F6] text-[#111111] hover:bg-gray-200 rounded-xl font-bold text-xs transition active:scale-95"
+                >
+                  {btn}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={gunakanHasilKalkulator}
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-2xl font-bold text-xs transition flex items-center justify-center gap-2 shadow-xs active:scale-[0.98]"
+            >
+              <CornerDownLeft size={14} />
+              <span>Salin ke Input Transaksi</span>
+            </button>
+
+          </div>
+        </div>
+      )}
 
       {/* MODAL SEMUA RIWAYAT TRANSAKSI */}
       {showAllModal && (
@@ -567,10 +727,10 @@ export default function Dashboard() {
                     className="text-xs font-bold text-[#111111] bg-white px-2.5 py-1 rounded-lg outline-none border border-gray-200 cursor-pointer"
                   >
                     <option value="semua">Semua Waktu</option>
-                    <option value="bulan">Bulan Ini</option>
                     <option value="7">7 Hari Terakhir</option>
                     <option value="30">30 Hari Terakhir</option>
-                    <option value="custom">Kustom Hari...</option>
+                    <option value="bulan">Bulan Ini</option>
+                    <option value="custom">Kustom Hari</option>
                   </select>
                 </div>
               </div>
@@ -630,13 +790,36 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* MODAL INPUT TRANSAKSI (DENGAN INDIKATOR NOMINAL FORMAT RIBUAN) */}
+      {/* MODAL INPUT & EDIT TRANSAKSI (BISA BONGKAR PASANG JENIS TRANSAKSI) */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-gray-200 shadow-xl animate-in zoom-in-95 duration-150">
-            <div className="flex justify-between items-center mb-5">
+            <div className="flex justify-between items-center mb-4">
               <h2 className="font-bold text-base text-[#111111]">{editId ? 'Edit Catatan' : `Tambah ${jenis === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran'}`}</h2>
               <button onClick={() => setShowModal(false)} className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full transition"><X size={16} /></button>
+            </div>
+
+            {/* Pilihan Jenis Transaksi (Dapat diganti saat Edit/Tambah) */}
+            <div className="grid grid-cols-2 gap-2 bg-[#F3F4F6] p-1.5 rounded-2xl mb-4">
+              <button
+                type="button"
+                onClick={() => setJenis('pemasukan')}
+                className={`py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 ${jenis === 'pemasukan' ? 'bg-emerald-500 text-white shadow-xs' : 'text-gray-500 hover:text-[#111111]'
+                  }`}
+              >
+                <ArrowDownLeft size={14} />
+                <span>Pemasukan</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setJenis('pengeluaran')}
+                className={`py-2 text-xs font-bold rounded-xl transition flex items-center justify-center gap-1.5 ${jenis === 'pengeluaran' ? 'bg-rose-500 text-white shadow-xs' : 'text-gray-500 hover:text-[#111111]'
+                  }`}
+              >
+                <ArrowUpRight size={14} />
+                <span>Pengeluaran</span>
+              </button>
             </div>
 
             <label className="text-[11px] font-bold text-gray-500 mb-1 block">Nominal (Rp)</label>
@@ -644,6 +827,8 @@ export default function Dashboard() {
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-xs text-gray-400">Rp</span>
               <input
                 type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 placeholder="0"
                 value={jumlah}
                 onChange={handleJumlahChange}
