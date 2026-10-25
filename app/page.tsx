@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useRouter } from 'next/navigation'
-import { LogOut, Eye, EyeOff, X, Home, Calendar, User, Trash2, Edit3, Plus, ArrowUpRight, ArrowDownLeft, PieChart, CheckCircle2, Circle, Search, ChevronRight, History, Filter, CheckSquare, Square, Calculator, Delete, CornerDownLeft } from 'lucide-react'
+import { LogOut, Eye, EyeOff, X, Home, Calendar, User, Trash2, Edit3, Plus, ArrowUpRight, ArrowDownLeft, PieChart, CheckCircle2, Circle, Search, ChevronRight, History, Filter, CheckSquare, Square, Calculator, Delete, CornerDownLeft, Bell } from 'lucide-react'
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
@@ -35,11 +35,37 @@ export default function Dashboard() {
   const [kategori, setKategori] = useState('')
   const [jenis, setJenis] = useState('pemasukan')
 
+  // State Notifikasi
+  const [notifGranted, setNotifGranted] = useState(false)
+
   const router = useRouter()
 
   useEffect(() => {
     checkUserAndFetchData()
+    cekIzinNotifikasi()
   }, [])
+
+  // Pengecek Jadwal & Penembak Notifikasi Otomatis
+  useEffect(() => {
+    if (!notifGranted || schedules.length === 0) return
+
+    const interval = setInterval(() => {
+      const sekarang = new Date()
+      const jamSekarang = sekarang.toTimeString().substring(0, 5) // HH:mm
+      const tanggalSekarang = sekarang.toISOString().split('T')[0] // YYYY-MM-DD
+
+      schedules.forEach((s) => {
+        if (!s.is_completed && s.tanggal === tanggalSekarang && s.waktu === jamSekarang) {
+          tampilkanNotifikasiHP(
+            `Pengingat Jadwal: ${s.judul}`,
+            `Agenda kamu dijadwalkan sekarang (${s.waktu}). Jangan lupa dierjakan ya!`
+          )
+        }
+      })
+    }, 30000) // Pengecekan setiap 30 detik
+
+    return () => clearInterval(interval)
+  }, [schedules, notifGranted])
 
   const checkUserAndFetchData = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -52,11 +78,53 @@ export default function Dashboard() {
     const { data: trxData } = await supabase.from('transactions').select('*').order('tanggal', { ascending: false })
     if (trxData) setTransactions(trxData)
 
-    const { data: schData } = await supabase.from('schedules').select('*').order('tanggal', { ascending: true }).limit(3)
+    const { data: schData } = await supabase.from('schedules').select('*').order('tanggal', { ascending: true }).limit(5)
     if (schData) setSchedules(schData)
   }
 
-  // Format angka dengan pemisah ribuan otomatis saat mengetik
+  // Fungsi Cek & Minta Izin Notifikasi
+  const cekIzinNotifikasi = () => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        setNotifGranted(true)
+      }
+    }
+  }
+
+  const memintaIzinNotifikasi = async () => {
+    if (!('Notification' in window)) {
+      alert('Browser/HP kamu belum mendukung fitur notifikasi.')
+      return
+    }
+
+    const permission = await Notification.requestPermission()
+    if (permission === 'granted') {
+      setNotifGranted(true)
+      tampilkanNotifikasiHP('Notifikasi Aktif!', 'PNS Tracker akan mengingatkan agenda jadwal kamu.')
+    } else {
+      alert('Izin notifikasi ditolak. Kamu bisa mengaktifkannya di pengaturan browser HP.')
+    }
+  }
+
+  const tampilkanNotifikasiHP = (judul: string, pesan: string) => {
+    if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.showNotification(judul, {
+          body: pesan,
+          icon: '/icon-192x192.png',
+          badge: '/icon-192x192.png',
+          vibrate: [200, 100, 200]
+        } as NotificationOptions)
+      })
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification(judul, {
+        body: pesan,
+        icon: '/icon-192x192.png'
+      })
+    }
+  }
+
+  // Format angka pemisah ribuan
   const handleJumlahChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawValue = e.target.value.replace(/\D/g, '')
     if (rawValue === '') {
@@ -67,7 +135,7 @@ export default function Dashboard() {
     setJumlah(formatted)
   }
 
-  // Logika Kalkulator
+  // Logika Kalkulator Fleksibel
   const handleCalcInput = (val: string) => {
     if (val === 'AC') {
       setCalcDisplay('0')
@@ -85,7 +153,24 @@ export default function Dashboard() {
     }
 
     if (['+', '-', '×', '÷', '%'].includes(val)) {
-      setCalcExpression(calcDisplay + ' ' + val + ' ')
+      if (calcExpression && calcDisplay !== '0') {
+        try {
+          const fullExpr = calcExpression + calcDisplay
+          const sanitized = fullExpr.replace(/×/g, '*').replace(/÷/g, '/').replace(/%/g, '/100')
+          // eslint-disable-next-line no-eval
+          const currentResult = eval(sanitized)
+          const rounded = Math.round(currentResult * 100) / 100
+          setCalcExpression(rounded.toString() + ' ' + val + ' ')
+          setCalcDisplay('0')
+          return
+        } catch (err) {
+          setCalcDisplay('Error')
+          setCalcExpression('')
+          return
+        }
+      }
+
+      setCalcExpression((calcExpression ? calcExpression : calcDisplay) + ' ' + val + ' ')
       setCalcDisplay('0')
       return
     }
@@ -102,6 +187,7 @@ export default function Dashboard() {
         setCalcExpression('')
       } catch (err) {
         setCalcDisplay('Error')
+        setCalcExpression('')
       }
       return
     }
@@ -113,9 +199,21 @@ export default function Dashboard() {
     }
   }
 
-  // Transfer hasil kalkulator ke input nominal transaksi
   const gunakanHasilKalkulator = () => {
-    const numericValue = parseFloat(calcDisplay.replace(/[^0-9.]/g, ''))
+    let finalValue = calcDisplay
+    if (calcExpression && calcDisplay !== '0') {
+      try {
+        const fullExpr = calcExpression + calcDisplay
+        const sanitized = fullExpr.replace(/×/g, '*').replace(/÷/g, '/').replace(/%/g, '/100')
+        // eslint-disable-next-line no-eval
+        const result = eval(sanitized)
+        finalValue = (Math.round(result * 100) / 100).toString()
+      } catch (e) {
+        finalValue = calcDisplay
+      }
+    }
+
+    const numericValue = parseFloat(finalValue.replace(/[^0-9.]/g, ''))
     if (!isNaN(numericValue) && numericValue > 0) {
       setJumlah(Math.round(numericValue).toLocaleString('id-ID'))
       setShowCalcModal(false)
@@ -280,7 +378,7 @@ export default function Dashboard() {
       {/* Main Container */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 pt-4 md:pt-8">
 
-        {/* Header Profil */}
+        {/* Header Profil & Tombol Notifikasi */}
         <div className="flex justify-between items-center mb-6 px-1">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gray-200 border border-gray-300 flex items-center justify-center font-bold text-sm text-[#111111]">
@@ -292,9 +390,25 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <button onClick={handleLogout} className="md:hidden p-2 text-gray-500 bg-white rounded-2xl border border-gray-200">
-            <LogOut size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Tombol Pengingat Notifikasi HP */}
+            <button 
+              onClick={memintaIzinNotifikasi}
+              className={`px-3 py-2 rounded-2xl text-xs font-bold transition flex items-center gap-1.5 border ${
+                notifGranted 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
+              }`}
+              title="Aktifkan Notifikasi HP"
+            >
+              <Bell size={15} className={notifGranted ? 'fill-emerald-600 text-emerald-600' : ''} />
+              <span className="hidden sm:inline">{notifGranted ? 'Notifikasi HP Aktif' : 'Aktifkan Notifikasi HP'}</span>
+            </button>
+
+            <button onClick={handleLogout} className="md:hidden p-2 text-gray-500 bg-white rounded-2xl border border-gray-200">
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Highlight Grid */}
@@ -538,24 +652,24 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* MODAL POP-UP KALKULATOR INTERAKTIF */}
+      {/* MODAL POP-UP KALKULATOR */}
       {showCalcModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-xs sm:max-w-sm rounded-3xl p-5 border border-gray-200 shadow-2xl animate-in zoom-in-95 duration-150">
 
             <div className="flex justify-between items-center mb-3">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 bg-gray-100 rounded-xl flex items-center justify-center text-[#111111]">
-                  <Calculator size={15} />
+                <div className="w-8 h-8 bg-gray-100 rounded-xl flex items-center justify-center text-[#111111]">
+                  <Calculator size={16} />
                 </div>
                 <h2 className="font-bold text-sm text-[#111111]">Kalkulator Cihuy</h2>
               </div>
-              <button onClick={() => setShowCalcModal(false)} className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full transition"><X size={15} /></button>
+              <button onClick={() => setShowCalcModal(false)} className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full transition"><X size={16} /></button>
             </div>
 
-            <div className="bg-[#F8F9FA] p-4 rounded-2xl border border-gray-200/80 mb-4 text-right">
-              <p className="text-[11px] font-semibold text-gray-400 min-h-[16px] overflow-hidden">{calcExpression || ' '}</p>
-              <p className="text-2xl font-black text-[#111111] tracking-tight truncate mt-0.5">{calcDisplay}</p>
+            <div className="bg-[#111111] text-white p-4 rounded-2xl mb-4 text-right shadow-inner">
+              <p className="text-xs font-medium text-gray-400 min-h-[18px] overflow-hidden truncate">{calcExpression || ' '}</p>
+              <p className="text-3xl font-black tracking-tight truncate mt-1 text-white">{calcDisplay}</p>
             </div>
 
             <div className="grid grid-cols-4 gap-2 mb-4">
@@ -563,12 +677,12 @@ export default function Dashboard() {
                 <button
                   key={btn}
                   onClick={() => handleCalcInput(btn)}
-                  className={`py-3 rounded-xl font-extrabold text-xs transition active:scale-95 ${btn === 'AC' ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' :
+                  className={`py-3.5 rounded-2xl font-extrabold text-sm transition active:scale-95 ${btn === 'AC' ? 'bg-rose-100 text-rose-700 hover:bg-rose-200' :
                       btn === 'DEL' ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' :
-                        'bg-slate-100 text-[#111111] hover:bg-slate-200'
+                        'bg-gray-100 text-[#111111] hover:bg-gray-200'
                     }`}
                 >
-                  {btn === 'DEL' ? <Delete size={15} className="mx-auto" /> : btn}
+                  {btn === 'DEL' ? <Delete size={18} className="mx-auto" /> : btn}
                 </button>
               ))}
 
@@ -576,7 +690,7 @@ export default function Dashboard() {
                 <button
                   key={btn}
                   onClick={() => handleCalcInput(btn)}
-                  className={`py-3 rounded-xl font-bold text-xs transition active:scale-95 ${btn === '-' ? 'bg-slate-100 text-[#111111] hover:bg-slate-200 font-extrabold' : 'bg-[#F3F4F6] text-[#111111] hover:bg-gray-200'
+                  className={`py-3.5 rounded-2xl font-bold text-sm transition active:scale-95 ${btn === '-' ? 'bg-gray-100 text-[#111111] hover:bg-gray-200 font-extrabold' : 'bg-[#F8F9FA] border border-gray-100 text-[#111111] hover:bg-gray-200'
                     }`}
                 >
                   {btn}
@@ -587,7 +701,7 @@ export default function Dashboard() {
                 <button
                   key={btn}
                   onClick={() => handleCalcInput(btn)}
-                  className={`py-3 rounded-xl font-bold text-xs transition active:scale-95 ${btn === '+' ? 'bg-slate-100 text-[#111111] hover:bg-slate-200 font-extrabold' : 'bg-[#F3F4F6] text-[#111111] hover:bg-gray-200'
+                  className={`py-3.5 rounded-2xl font-bold text-sm transition active:scale-95 ${btn === '+' ? 'bg-gray-100 text-[#111111] hover:bg-gray-200 font-extrabold' : 'bg-[#F8F9FA] border border-gray-100 text-[#111111] hover:bg-gray-200'
                     }`}
                 >
                   {btn}
@@ -598,7 +712,7 @@ export default function Dashboard() {
                 <button
                   key={btn}
                   onClick={() => handleCalcInput(btn)}
-                  className={`py-3 rounded-xl font-bold text-xs transition active:scale-95 ${btn === '=' ? 'bg-[#111111] text-white hover:bg-gray-800 row-span-2 flex items-center justify-center font-extrabold' : 'bg-[#F3F4F6] text-[#111111] hover:bg-gray-200'
+                  className={`py-3.5 rounded-2xl font-bold text-sm transition active:scale-95 ${btn === '=' ? 'bg-[#111111] text-white hover:bg-gray-800 row-span-2 flex items-center justify-center font-extrabold text-lg' : 'bg-[#F8F9FA] border border-gray-100 text-[#111111] hover:bg-gray-200'
                     }`}
                 >
                   {btn}
@@ -609,7 +723,7 @@ export default function Dashboard() {
                 <button
                   key={btn}
                   onClick={() => handleCalcInput(btn)}
-                  className="py-3 bg-[#F3F4F6] text-[#111111] hover:bg-gray-200 rounded-xl font-bold text-xs transition active:scale-95"
+                  className="py-3.5 bg-[#F8F9FA] border border-gray-100 text-[#111111] hover:bg-gray-200 rounded-2xl font-bold text-sm transition active:scale-95"
                 >
                   {btn}
                 </button>
@@ -618,9 +732,9 @@ export default function Dashboard() {
 
             <button
               onClick={gunakanHasilKalkulator}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-3 rounded-2xl font-bold text-xs transition flex items-center justify-center gap-2 shadow-xs active:scale-[0.98]"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white p-3.5 rounded-2xl font-bold text-xs transition flex items-center justify-center gap-2 shadow-sm active:scale-[0.98]"
             >
-              <CornerDownLeft size={14} />
+              <CornerDownLeft size={15} />
               <span>Salin ke Input Transaksi</span>
             </button>
 
@@ -790,7 +904,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* MODAL INPUT & EDIT TRANSAKSI (BISA BONGKAR PASANG JENIS TRANSAKSI) */}
+      {/* MODAL INPUT & EDIT TRANSAKSI */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 border border-gray-200 shadow-xl animate-in zoom-in-95 duration-150">
@@ -799,7 +913,6 @@ export default function Dashboard() {
               <button onClick={() => setShowModal(false)} className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full transition"><X size={16} /></button>
             </div>
 
-            {/* Pilihan Jenis Transaksi (Dapat diganti saat Edit/Tambah) */}
             <div className="grid grid-cols-2 gap-2 bg-[#F3F4F6] p-1.5 rounded-2xl mb-4">
               <button
                 type="button"

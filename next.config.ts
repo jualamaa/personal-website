@@ -13,4 +13,5 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
 };
 
-export default withPWA(nextConfig);
+// @ts-ignore
+export default process.env.NODE_ENV === "development" ? nextConfig : withPWA(nextConfig);

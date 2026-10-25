@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRouter } from 'next/navigation'
 import { User, Home, Calendar, Save, LogOut, Building, Mail, Check, FileSpreadsheet, Download } from 'lucide-react'
-import * as XLSX from 'xlsx'
+import XLSX from 'xlsx-js-style'
 
 export default function ProfilPage() {
   const [user, setUser] = useState<any>(null)
@@ -14,7 +14,6 @@ export default function ProfilPage() {
   const [loadingExport, setLoadingExport] = useState(false)
   const [stats, setStats] = useState({ totalTrx: 0, totalSchedule: 0 })
 
-  // State Ekspor Excel Dinamis & Kustom
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState<number | ''>(now.getFullYear())
@@ -46,7 +45,6 @@ export default function ProfilPage() {
 
     setStats({ totalTrx: trxCount || 0, totalSchedule: schCount || 0 })
 
-    // Deteksi tahun dari database transaksi untuk rekomendasi datalist
     if (trxData && trxData.length > 0) {
       const yearsSet = new Set<number>()
       yearsSet.add(now.getFullYear())
@@ -81,7 +79,7 @@ export default function ProfilPage() {
     }
   }
 
-  // LOGIKA EKSPOR KE EXCEL (.XLSX)
+  // EKSPOR LAPORAN EXCEL DENGAN FORMAT PEMISAH RIBUAN PADA NOMINAL UANG
   const exportToExcel = async () => {
     if (!selectedYear) {
       alert("Silakan masukkan atau pilih tahun laporan terlebih dahulu.")
@@ -116,40 +114,177 @@ export default function ProfilPage() {
     let totalPemasukan = 0
     let totalPengeluaran = 0
 
-    // Deklarasi array tipe any[] untuk mencegah kesalahan TypeScript
-    const excelRows: any[] = filteredTrx.map((t, index) => {
+    filteredTrx.forEach(t => {
       const nominal = Number(t.jumlah)
       if (t.jenis === 'pemasukan') totalPemasukan += nominal
       else totalPengeluaran += nominal
-
-      return {
-        "No": String(index + 1),
-        "Tanggal": t.tanggal,
-        "Jenis": t.jenis === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran',
-        "Kategori / Keterangan": t.kategori,
-        "Nominal (Rp)": nominal
-      }
     })
 
-    // Tambah baris ringkasan saldo di bawah data utama
-    excelRows.push(
-      { "No": "-", "Tanggal": "-", "Jenis": "-", "Kategori / Keterangan": "-", "Nominal (Rp)": 0 },
-      { "No": "", "Tanggal": "", "Jenis": "TOTAL PEMASUKAN", "Kategori / Keterangan": "", "Nominal (Rp)": totalPemasukan },
-      { "No": "", "Tanggal": "", "Jenis": "TOTAL PENGELUARAN", "Kategori / Keterangan": "", "Nominal (Rp)": totalPengeluaran },
-      { "No": "", "Tanggal": "", "Jenis": "SALDO BERSIH", "Kategori / Keterangan": "", "Nominal (Rp)": (totalPemasukan - totalPengeluaran) }
+    const saldoAkhir = totalPemasukan - totalPengeluaran
+    const tglCetak = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+
+    const excelSheetData: any[][] = [
+      ["LAPORAN KEUANGAN BULANAN - PNS TRACKER"],
+      [`Periode: ${namaBulan(selectedMonth)} ${selectedYear}`],
+      [`Nama Pengguna: ${nama || 'Pengguna PNS Tracker'}`],
+      [`Instansi: ${instansi || '-'}`],
+      [`Tanggal Dicetak: ${tglCetak}`],
+      [],
+      ["KARTU RINGKASAN SALDO", "", "", ""],
+      ["TOTAL PEMASUKAN", "TOTAL PENGELUARAN", "SALDO BERSIH", "STATUS KEUANGAN"],
+      [totalPemasukan, totalPengeluaran, saldoAkhir, saldoAkhir >= 0 ? "SURPLUS (SEHAT)" : "DEFISIT (PERINGATAN)"],
+      [],
+      ["NO", "TANGGAL", "INDIKATOR STATUS", "JENIS TRANSAKSI", "KATEGORI / KETERANGAN", "PEMASUKAN (RP)", "PENGELUARAN (RP)"]
+    ]
+
+    filteredTrx.forEach((t, index) => {
+      const nominal = Number(t.jumlah)
+      const isMasuk = t.jenis === 'pemasukan'
+
+      excelSheetData.push([
+        index + 1,
+        t.tanggal,
+        isMasuk ? "[+] UANG MASUK" : "[-] UANG KELUAR",
+        isMasuk ? 'Pemasukan' : 'Pengeluaran',
+        t.kategori,
+        isMasuk ? nominal : 0,
+        !isMasuk ? nominal : 0
+      ])
+    })
+
+    excelSheetData.push(
+      [],
+      ["", "", "", "", "TOTAL KESELURUHAN", totalPemasukan, totalPengeluaran],
+      ["", "", "", "", "SALDO BERSIH BULAN INI", saldoAkhir, ""]
     )
 
-    const worksheet = XLSX.utils.json_to_sheet(excelRows)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Keuangan")
+    const worksheet = XLSX.utils.aoa_to_sheet(excelSheetData)
 
-    worksheet["!cols"] = [
+    const borderThin = {
+      top: { style: "thin", color: { rgb: "D1D5DB" } },
+      bottom: { style: "thin", color: { rgb: "D1D5DB" } },
+      left: { style: "thin", color: { rgb: "D1D5DB" } },
+      right: { style: "thin", color: { rgb: "D1D5DB" } }
+    }
+
+    if (worksheet["A1"]) {
+      worksheet["A1"].s = {
+        font: { name: "Calibri", sz: 16, bold: true, color: { rgb: "065F46" } }
+      }
+    }
+
+    // Format Kartu Ringkasan
+    for (let c = 0; c < 4; c++) {
+      const headerCell = XLSX.utils.encode_cell({ c: c, r: 7 })
+      const valueCell = XLSX.utils.encode_cell({ c: c, r: 8 })
+
+      if (worksheet[headerCell]) {
+        worksheet[headerCell].s = {
+          font: { name: "Calibri", sz: 9, bold: true, color: { rgb: "4B5563" } },
+          fill: { fgColor: { rgb: "E5E7EB" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: borderThin
+        }
+      }
+
+      if (worksheet[valueCell]) {
+        let textClr = "111827"
+        let bgClr = "F9FAFB"
+
+        if (c === 0) { textClr = "047857"; bgClr = "ECFDF5" }
+        else if (c === 1) { textClr = "B91C1C"; bgClr = "FEF2F2" }
+        else if (c === 2) { textClr = saldoAkhir >= 0 ? "047857" : "B91C1C"; bgClr = saldoAkhir >= 0 ? "ECFDF5" : "FEF2F2" }
+        else if (c === 3) { textClr = saldoAkhir >= 0 ? "065F46" : "991B1B"; bgClr = saldoAkhir >= 0 ? "D1FADF" : "FEE4E2" }
+
+        worksheet[valueCell].s = {
+          font: { name: "Calibri", sz: 11, bold: true, color: { rgb: textClr } },
+          fill: { fgColor: { rgb: bgClr } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: borderThin,
+          // Format Angka Rupiah dengan pemisah ribuan otomatis
+          ...(c < 3 ? { z: "Rp #,##0" } : {})
+        }
+      }
+    }
+
+    // Format Header Tabel Utama
+    const headerRowIndex = 10
+    for (let col = 0; col < 7; col++) {
+      const cellRef = XLSX.utils.encode_cell({ c: col, r: headerRowIndex })
+      if (worksheet[cellRef]) {
+        worksheet[cellRef].s = {
+          font: { name: "Calibri", sz: 10, bold: true, color: { rgb: "FFFFFF" } },
+          fill: { fgColor: { rgb: "065F46" } },
+          alignment: { horizontal: col === 0 || col === 2 ? "center" : col >= 5 ? "right" : "left", vertical: "center" },
+          border: borderThin
+        }
+      }
+    }
+
+    // Format Baris Data & Nominal Uang
+    const startDataRow = 11
+    const endDataRow = startDataRow + filteredTrx.length - 1
+
+    for (let r = startDataRow; r <= endDataRow; r++) {
+      const isZebra = r % 2 === 0
+      const rowBgColor = isZebra ? "F9FAFB" : "FFFFFF"
+
+      for (let c = 0; c < 7; c++) {
+        const cellRef = XLSX.utils.encode_cell({ c: c, r: r })
+        if (worksheet[cellRef]) {
+          const isMasuk = worksheet[XLSX.utils.encode_cell({ c: 2, r: r })]?.v?.includes("UANG MASUK")
+
+          let customTextClr = "1F2937"
+          let customBgClr = rowBgColor
+
+          if (c === 2) {
+            customTextClr = isMasuk ? "047857" : "B91C1C"
+            customBgClr = isMasuk ? "E6F4EA" : "FCE8E6"
+          }
+
+          worksheet[cellRef].s = {
+            font: { name: "Calibri", sz: 10, bold: c === 2, color: { rgb: customTextClr } },
+            fill: { fgColor: { rgb: customBgClr } },
+            border: borderThin,
+            alignment: {
+              horizontal: c === 0 || c === 2 ? "center" : c >= 5 ? "right" : "left",
+              vertical: "center"
+            },
+            // Menambahkan pemisah ribuan (titik/koma) pada kolom nominal pemasukan & pengeluaran
+            ...(typeof worksheet[cellRef].v === 'number' && c >= 5 ? { z: "#,##0" } : {})
+          }
+        }
+      }
+    }
+
+    // Format Baris Total Keseluruhan di Bawah Tabel
+    const totalRowIndex = endDataRow + 2
+    for (let c = 4; c < 7; c++) {
+      const cellRef = XLSX.utils.encode_cell({ c: c, r: totalRowIndex })
+      if (worksheet[cellRef]) {
+        worksheet[cellRef].s = {
+          font: { name: "Calibri", sz: 11, bold: true, color: { rgb: "065F46" } },
+          fill: { fgColor: { rgb: "E6F4EA" } },
+          border: borderThin,
+          alignment: { horizontal: c >= 5 ? "right" : "left" },
+          // Format pemisah ribuan untuk baris total akhir
+          ...(typeof worksheet[cellRef].v === 'number' ? { z: "#,##0" } : {})
+        }
+      }
+    }
+
+    worksheet['!cols'] = [
       { wch: 6 },
       { wch: 14 },
       { wch: 20 },
-      { wch: 30 },
-      { wch: 18 }
+      { wch: 18 },
+      { wch: 32 },
+      { wch: 22 },
+      { wch: 22 }
     ]
+
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Keuangan")
 
     const fileName = `Laporan_Keuangan_PNS_${nama ? nama.replace(/\s+/g, '_') : 'User'}_${namaBulan(selectedMonth)}_${selectedYear}.xlsx`
     XLSX.writeFile(workbook, fileName)
@@ -171,8 +306,6 @@ export default function ProfilPage() {
 
   return (
     <div className="w-full min-h-screen bg-[#F3F4F6] text-[#111111] font-sans antialiased pb-28 md:pb-12">
-
-      {/* Top Header Desktop */}
       <header className="hidden md:block bg-white border-b border-gray-200/80 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -200,10 +333,7 @@ export default function ProfilPage() {
         </div>
       </header>
 
-      {/* Main Container */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 md:px-8 pt-4 md:pt-8">
-
-        {/* Kartu Profil Utama Solid */}
         <div className="bg-[#111111] text-white p-6 rounded-3xl shadow-xs max-w-2xl mb-6">
           <div className="flex items-center gap-4 mb-6">
             <div className="w-14 h-14 rounded-2xl bg-white text-[#111111] font-extrabold text-lg flex items-center justify-center shrink-0">
@@ -227,7 +357,6 @@ export default function ProfilPage() {
           </div>
         </div>
 
-        {/* CETAK & EKSPOR EXCEL */}
         <div className="bg-white p-6 rounded-3xl border border-gray-200/80 max-w-2xl space-y-4 mb-6">
           <div className="flex items-center gap-2 border-b border-gray-100 pb-3">
             <div className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
@@ -235,7 +364,7 @@ export default function ProfilPage() {
             </div>
             <div>
               <h3 className="font-bold text-[#111111] text-sm">Unduh Laporan Keuangan</h3>
-              <p className="text-[11px] text-gray-400 font-medium">Cetak portofolio transaksi bulanan</p>
+              <p className="text-[11px] text-gray-400 font-medium">Cetak laporan berindikator status keuangan</p>
             </div>
           </div>
 
@@ -253,7 +382,6 @@ export default function ProfilPage() {
               </select>
             </div>
 
-            {/* Input Tahun Kustom dengan Opsi Datalist */}
             <div>
               <label className="text-[11px] font-bold text-gray-500 mb-1 block">Tahun</label>
               <input
@@ -281,11 +409,10 @@ export default function ProfilPage() {
             className="w-full bg-emerald-700 hover:bg-emerald-800 text-white p-3.5 rounded-2xl font-bold text-xs transition active:scale-[0.99] flex items-center justify-center gap-2 shadow-xs"
           >
             <Download size={15} />
-            <span>{loadingExport ? 'Menyiapkan File...' : 'Unduh Laporan'}</span>
+            <span>{loadingExport ? 'Menyiapkan File...' : 'Unduh Laporan Excel'}</span>
           </button>
         </div>
 
-        {/* Form Edit Informasi Data Diri */}
         <div className="bg-white p-6 rounded-3xl border border-gray-200/80 max-w-2xl space-y-4">
           <h3 className="font-bold text-[#111111] text-sm mb-2">Informasi Akun & Data Diri</h3>
 
@@ -339,10 +466,8 @@ export default function ProfilPage() {
             <Save size={16} /> {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
           </button>
         </div>
-
       </main>
 
-      {/* Bottom Nav Mobile */}
       <div className="fixed bottom-0 left-0 right-0 md:hidden bg-white/95 backdrop-blur-md border-t border-gray-200 flex justify-around items-center p-3 z-40">
         <button onClick={() => router.push('/')} className="flex flex-col items-center gap-1 text-gray-400 hover:text-[#111111]">
           <Home size={18} />
@@ -357,7 +482,6 @@ export default function ProfilPage() {
           <span className="text-[10px] font-bold">Profil</span>
         </button>
       </div>
-
     </div>
   )
 }
